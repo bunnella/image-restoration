@@ -56,8 +56,8 @@ d <- function(xs, ys) {
 	return((xs-ys)^2)
 }
 
-f <- function(xs,xt) {
-	return((xs-xt)^2)
+f <- function(xs, xt, e) {
+	return((xs-xt)^2*(1-e) + gamma*e)
 }
 
 createV <- function(num) {
@@ -65,38 +65,42 @@ createV <- function(num) {
 }
 
 # data structures/functions for manipulating microedges
-eNS <- matrix(0 R-1, C)
+eNS <- matrix(0, R-1, C)
 eEW <- matrix(0, R, C-1)
 getME <- function(s1, s2) {
-  r1 <- convertItoRC(s1)[0]; r2 <- convertItoRC(s2)[0];
-  c1 <- convertItoRC(s1)[1]; c2 <- convertItoRC(s2)[1];
-  if (abs(r1-r2) == 1) eEW(min(r1, r2))
-  else if (abs(c1-c2) == 1) eNS(min(c1, c2))
-  else stop("invalid neighbors, stupid")
+  r1 <- convertItoRC(s1)[1]; r2 <- convertItoRC(s2)[1];
+  c1 <- convertItoRC(s1)[2]; c2 <- convertItoRC(s2)[2];
+  if (abs(r1-r2) == 1) eEW[min(r1, r2), c1]
+  else if (abs(c1-c2) == 1) eNS[r1, min(c1, c2)]
 }
 setME <- function(s1, s2, v = 1) {
   r1 <- convertItoRC(s1)[0]; r2 <- convertItoRC(s2)[0];
   c1 <- convertItoRC(s1)[1]; c2 <- convertItoRC(s2)[1];
-  if (abs(r1-r2) == 1) eEW(min(r1, r2)) <- v
-  else if (abs(c1-c2) == 1) eNS(min(c1, c2)) <- v
-  else stop("invalid neighbors, stupid")
+  if (abs(r1-r2) == 1) eEW[min(r1, r2), c1] <- v
+  else if (abs(c1-c2) == 1) eNS[r1, min(c1, c2)] <- v
 }
 
+# energy function
+H <- function(s, v) {
+  theta*d(v, y[s]) + sum(sapply(neighbors(s), function(t) f(v, x[t], getME(s, t))))
+}
 
 # returns a sample from the local characteristic distribution
 sampleXs <- function(s, beta = 1) {
-	probs <- sapply(V, function(v)
-		exp(-beta*(theta*d(v,y[s]) + sum(sapply(neighbors(s), function(t)
-			f(v,x[t])
-		))))
-	)
+	probs <- sapply(V, function(v) exp(-beta*H(s, v)))
 	sample(V, 1, prob = probs)
 }
 
+# returns a sampled microedge parity between pixels s & t
+sampleME <- function(s, t, beta = 1) {
+  probs <- sapply(0:1, function(e) exp(-beta*f(s, t, e)))
+  sample(0:1, 1, prob = probs)
+}
 
-#R <- C <- 20
+R <- C <- 20
 noiseProb <- .2
 theta <- 8
+gamma <- .1
 N <- 10^2
 V <- createV(256)
 
@@ -121,21 +125,20 @@ display(y, "Noisy data")
 
 # Gibbs time ;)
 for (n in 1:N) {
+  beta = min(exp((n - N/2)/20), 50)
   for (s in 1:(R*C)) {
-    x[s] = sampleXs(s, min(exp((n - N/2)/20), 50))
+    x[s] = sampleXs(s, beta)
   }
   for (s in 1:(R*C)) {
     for (t in neighbors(R*C)) {
       if (t > s) {
-        # compute energy with microedge on
-        # compute energy with microedge off
-        # return lower with exp prob
+        setME(s, t, sampleME(s, t, beta))
       }
     }
   }
 }
 
-display(x, "MAP")
+display(x, "MAP estimate")
 
 
 
