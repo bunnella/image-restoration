@@ -9,8 +9,11 @@ display <- function(img, caption = "", ColVals = (V/2+.5)) {
 }
 
 degrade <- function(original, perturb_percentage=.2) {
-  perturb_range = perturb_percentage*2 # 20% of dist between -1 and 1
-  random_noise <- matrix(runif(R*C,-perturb_range/2,perturb_range/2), nrow=R, ncol=C)
+  static_vector <- rnorm(R*C,0,perturb_percentage/2)
+  # 90% within two standard deviations
+  # which is +/- perturb_percentage
+  # which is perturb_percentage as percentage of dist between -1 and 1
+  random_noise <- matrix(static_vector, nrow=R, ncol=C)
   # print(head(random_noise))
   added_noise <- original+random_noise
   #added_noise
