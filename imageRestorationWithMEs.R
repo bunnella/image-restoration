@@ -100,9 +100,9 @@ sampleME <- function(s, t, beta = 1) {
 R <- C <- 20
 noiseProb <- .2
 theta <- 8
-gamma <- .25
-N <- 10^1
-V <- createV(20)
+gamma <- .1
+N <- 20^1
+V <- createV(40)
 
 #blah <- c(rep(-1, times=20), rep(c(-1,1,1,1,-1),times=12), rep(c(-1, rep(1,times=8), -1),times=2))
 #original <- matrix(rep(c(blah, rev(blah)), each=2), C, R)
@@ -125,7 +125,7 @@ display(y, "Noisy data")
 
 # Gibbs time ;)
 for (n in 1:N) {
-  cat(paste0(round(100*n/N), "%\r"))
+  cat("0%")
   beta = min(exp((n - N/2)/20), 50)
   for (s in 1:(R*C)) {
     x[s] = sampleXs(s, beta)
@@ -137,6 +137,7 @@ for (n in 1:N) {
       }
     }
   }
+  cat(paste0("\r", round(100*n/N), "%\r"))
 }
 
 display(x, "MAP estimate")
