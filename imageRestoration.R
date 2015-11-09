@@ -1,3 +1,5 @@
+
+
 # image
 # Gibbs Sample/ Simulated Annealing
 # RAP
