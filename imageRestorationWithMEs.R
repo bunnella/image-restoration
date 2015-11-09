@@ -74,8 +74,8 @@ getME <- function(s1, s2) {
   else if (abs(c1-c2) == 1) eEW[r1, min(c1, c2)]
 }
 setME <- function(s1, s2, v = 1) {
-  r1 <- convertItoRC(s1)[0]; r2 <- convertItoRC(s2)[0];
-  c1 <- convertItoRC(s1)[1]; c2 <- convertItoRC(s2)[1];
+  r1 <- convertItoRC(s1)[1]; r2 <- convertItoRC(s2)[1];
+  c1 <- convertItoRC(s1)[2]; c2 <- convertItoRC(s2)[2];
   if (abs(r1-r2) == 1) eNS[min(r1, r2), c1] <- v
   else if (abs(c1-c2) == 1) eEW[r1, min(c1, c2)] <- v
 }
@@ -100,16 +100,16 @@ sampleME <- function(s, t, beta = 1) {
 R <- C <- 20
 noiseProb <- .2
 theta <- 8
-gamma <- .1
-N <- 10^2
-V <- createV(256)
+gamma <- .25
+N <- 10^1
+V <- createV(20)
 
 #blah <- c(rep(-1, times=20), rep(c(-1,1,1,1,-1),times=12), rep(c(-1, rep(1,times=8), -1),times=2))
 #original <- matrix(rep(c(blah, rev(blah)), each=2), C, R)
 
 library(bmp)
 picture <- read.bmp("small_cat.bmp")
-values <- picture[,,1]
+values <- picture[ , , 1]
 values <- rbind(apply(cbind(apply(values, 2, rev)), 1, I))
 original <- values / 127.5 - 1
 R <- nrow(original)
@@ -125,6 +125,7 @@ display(y, "Noisy data")
 
 # Gibbs time ;)
 for (n in 1:N) {
+  cat(paste0(round(100*n/N), "%\r"))
   beta = min(exp((n - N/2)/20), 50)
   for (s in 1:(R*C)) {
     x[s] = sampleXs(s, beta)
