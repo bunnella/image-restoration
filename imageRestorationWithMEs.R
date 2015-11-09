@@ -8,7 +8,7 @@ display <- function(img, caption = "", ColVals = (V/2+.5)) {
   image(img, col = gray(ColVals), frame = F, asp = 1, xaxt = "n", yaxt = "n", main = caption)
 }
 
-new_degrade <- function(original, perturb_percentage=.2) {
+degrade <- function(original, perturb_percentage=.2) {
   perturb_range = perturb_percentage*2 # 20% of dist between -1 and 1
   random_noise <- matrix(runif(R*C,-perturb_range/2,perturb_range/2), nrow=R, ncol=C)
   # print(head(random_noise))
@@ -16,16 +16,6 @@ new_degrade <- function(original, perturb_percentage=.2) {
   #added_noise
   m <- matrix(mapply(function(x) min(max(x,-1), 1),added_noise),nrow=R,ncol=C)
   m
-}
-
-degrade <- function(original, noiseProb=.1, V = createV(1)) {
-  degraded <- original
-  for (i in 1:(R*C)) {
-    flip <- sample(c(T,F), 1, prob=c(noiseProb, 1-noiseProb))
-    degraded[i] <- ifelse(flip, sample(V, 1), degraded[i])
-
-  }
-  degraded
 }
 
 neighbors <- function(i) {
@@ -125,7 +115,8 @@ original <- values / 127.5 - 1
 R <- nrow(original)
 C <- ncol(original)
 
-y <- new_degrade(original, perturb_percentage=.2)
+y <- degrade(original, perturb_percentage=.25)
+display(y)
 
 x <- y
 
