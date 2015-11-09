@@ -4,7 +4,7 @@
 # Output
 
 display <- function(img, caption = "", ColVals = (V/2+.5)) {
-  img <- -img/2+.5
+  img <- img/2+.5
   image(img, col = gray(ColVals), frame = F, asp = 1, xaxt = "n", yaxt = "n", main = caption)
 }
 
@@ -12,7 +12,7 @@ degrade <- function(original, noiseProb=.1, V = createV(1)) {
   degraded <- original
   for (i in 1:(R*C)) {
     flip <- sample(c(T,F), 1, prob=c(noiseProb, 1-noiseProb))
-    degraded[i] <- ifelse(flip, sample(V,1), degraded[i])
+    degraded[i] <- ifelse(flip, sample(V, 1), degraded[i])
 
   }
   degraded
@@ -70,14 +70,14 @@ eEW <- matrix(0, R, C-1)
 getME <- function(s1, s2) {
   r1 <- convertItoRC(s1)[1]; r2 <- convertItoRC(s2)[1];
   c1 <- convertItoRC(s1)[2]; c2 <- convertItoRC(s2)[2];
-  if (abs(r1-r2) == 1) eEW[min(r1, r2), c1]
-  else if (abs(c1-c2) == 1) eNS[r1, min(c1, c2)]
+  if (abs(r1-r2) == 1) eNS[min(r1, r2), c1]
+  else if (abs(c1-c2) == 1) eEW[r1, min(c1, c2)]
 }
 setME <- function(s1, s2, v = 1) {
   r1 <- convertItoRC(s1)[0]; r2 <- convertItoRC(s2)[0];
   c1 <- convertItoRC(s1)[1]; c2 <- convertItoRC(s2)[1];
-  if (abs(r1-r2) == 1) eEW[min(r1, r2), c1] <- v
-  else if (abs(c1-c2) == 1) eNS[r1, min(c1, c2)] <- v
+  if (abs(r1-r2) == 1) eNS[min(r1, r2), c1] <- v
+  else if (abs(c1-c2) == 1) eEW[r1, min(c1, c2)] <- v
 }
 
 # energy function
@@ -108,10 +108,10 @@ V <- createV(256)
 #original <- matrix(rep(c(blah, rev(blah)), each=2), C, R)
 
 library(bmp)
-picture <- read.bmp("hi.bmp")
+picture <- read.bmp("small_cat.bmp")
 values <- picture[,,1]
 values <- rbind(apply(cbind(apply(values, 2, rev)), 1, I))
-original <- values
+original <- values / 127.5 - 1
 R <- nrow(original)
 C <- ncol(original)
 
