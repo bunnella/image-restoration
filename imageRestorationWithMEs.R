@@ -3,9 +3,10 @@
 # RAP
 # Output
 
-display <- function(img, caption = "", ColVals = (V/2+.5)) {
-  img <- img/2+.5
-  image(img, col = gray(ColVals), frame = F, asp = 1, xaxt = "n", yaxt = "n", main = caption)
+library(bmp)
+
+display <- function(img, caption = "") {
+  image(img/2+.5, col=gray(V/2+.5), zlim=0:1, frame=F, asp=1, xaxt="n", yaxt="n", main=caption)
 }
 
 degrade <- function(original, perturb_percentage=.2) {
@@ -54,19 +55,6 @@ convertRCtoI <- function(m, n) {
 	return((m + (n-1)*R))
 }
 
-# euclidian distance
-d <- function(xs, ys) {
-	return((xs-ys)^2)
-}
-
-f <- function(xs, xt, e) {
-	return((xs-xt)^2*(1-e) + gamma*e)
-}
-
-createV <- function(num) {
-	seq(-1,1,length.out = num)
-}
-
 # data structures/functions for manipulating microedges
 eEW <- matrix(0, R, C-1)
 eNS <- matrix(0, R-1, C)
@@ -85,6 +73,15 @@ setME <- function(s1, s2, e) {
   stop("invalid neighbors, stupid")
 }
 
+# euclidian distance
+d <- function(xs, ys) {
+	return((xs-ys)^2)
+}
+
+f <- function(xs, xt, e) {
+	return((xs-xt)^2*(1-e) + gamma*e)
+}
+
 # energy function
 H <- function(s, v) {
   theta*d(v, y[s]) + sum(sapply(neighbors(s), function(t) f(v, x[t], getME(s, t))))
@@ -98,31 +95,29 @@ sampleXs <- function(s, beta = 1) {
 
 # returns a sampled microedge parity between pixels s & t
 sampleME <- function(s, t, beta = 1) {
-  probs <- sapply(0:1, function(e) exp(-beta*f(s, t, e)))
+  probs <- sapply(0:1, function(e) exp(-beta*f(x[s], x[t], e)))
   sample(0:1, 1, prob = probs)
 }
 
-R <- C <- 20
-noiseProb <- .2
-theta <- 8
-gamma <- .1
-N <- 10^1
-V <- createV(40)
+##############################################################################
+## Gibbs Sampler!
 
-#blah <- c(rep(-1, times=20), rep(c(-1,1,1,1,-1),times=12), rep(c(-1, rep(1,times=8), -1),times=2))
-#original <- matrix(rep(c(blah, rev(blah)), each=2), C, R)
+N <- 30 # number of sweeps
+V <- seq(-1, 1, length.out = 32) # set of discrete gray levels
+theta <- 8 # weight on data term
+gamma <- 1 # microedge penalty
 
-library(bmp)
+# read in the test image
 picture <- read.bmp("small_cat.bmp")
-values <- picture[ , , 1]
-values <- rbind(apply(cbind(apply(values, 2, rev)), 1, I))
-original <- values / 127.5 - 1
-R <- nrow(original)
-C <- ncol(original)
+R <- ncol(picture)
+C <- nrow(picture)
 
+# transform to image()-ready orientation and degrade
+values <- t(picture[C:1, 1:R, 1]) # 1 => red channel
+original <- values / 127.5 - 1 # scale from [0..255] -> [-1, 1]
 y <- degrade(original, perturb_percentage=.25)
-display(y)
 
+# init Gibbs sampler with degraded (given) image
 x <- y
 
 par(mfrow = c(1, 3), mar = c(2.6, 1, 2.6, 1))
