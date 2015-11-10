@@ -4,6 +4,8 @@
 # Output
 
 library(bmp)
+library(compiler)
+enableJIT(3)
 
 display <- function(img, caption = "") {
   image(img/2+.5, col=gray(V/2+.5), zlim=0:1, frame=F, asp=1, xaxt="n", yaxt="n", main=caption)
@@ -84,7 +86,7 @@ sampleME <- function(s, t, beta = 1) {
 ##############################################################################
 ## Gibbs Sampler!
 
-N <- 50 # number of sweeps
+N <- 100 # number of sweeps
 V <- seq(-1, 1, length.out = 16) # set of discrete gray levels
 theta <- 4 # weight on data term
 gamma <- .1 # microedge penalty
