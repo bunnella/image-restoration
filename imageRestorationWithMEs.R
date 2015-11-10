@@ -68,19 +68,21 @@ createV <- function(num) {
 }
 
 # data structures/functions for manipulating microedges
-eNS <- matrix(0, R-1, C)
 eEW <- matrix(0, R, C-1)
+eNS <- matrix(0, R-1, C)
 getME <- function(s1, s2) {
   r1 <- convertItoRC(s1)[1]; r2 <- convertItoRC(s2)[1];
   c1 <- convertItoRC(s1)[2]; c2 <- convertItoRC(s2)[2];
-  if (abs(r1-r2) == 1) eNS[min(r1, r2), c1]
-  else if (abs(c1-c2) == 1) eEW[r1, min(c1, c2)]
+  if (r1 == r2 && abs(c1 - c2) == 1) eEW[r1, min(c1, c2)] else
+  if (c1 == c2 && abs(r1 - r2) == 1) eNS[min(r1, r2), c1] else
+  stop("invalid neighbors, stupid")
 }
-setME <- function(s1, s2, v = 1) {
+setME <- function(s1, s2, e) {
   r1 <- convertItoRC(s1)[1]; r2 <- convertItoRC(s2)[1];
   c1 <- convertItoRC(s1)[2]; c2 <- convertItoRC(s2)[2];
-  if (abs(r1-r2) == 1) eNS[min(r1, r2), c1] <- v
-  else if (abs(c1-c2) == 1) eEW[r1, min(c1, c2)] <- v
+  if (r1 == r2 && abs(c1 - c2) == 1) eEW[r1, min(c1, c2)] <<- e else
+  if (c1 == c2 && abs(r1 - r2) == 1) eNS[min(r1, r2), c1] <<- e else
+  stop("invalid neighbors, stupid")
 }
 
 # energy function
@@ -104,7 +106,7 @@ R <- C <- 20
 noiseProb <- .2
 theta <- 8
 gamma <- .1
-N <- 20^1
+N <- 10^1
 V <- createV(40)
 
 #blah <- c(rep(-1, times=20), rep(c(-1,1,1,1,-1),times=12), rep(c(-1, rep(1,times=8), -1),times=2))
@@ -129,13 +131,12 @@ display(y, "Noisy data")
 
 # Gibbs time ;)
 for (n in 1:N) {
-  cat("0%")
   beta = min(exp((n - N/2)/20), 50)
   for (s in 1:(R*C)) {
     x[s] = sampleXs(s, beta)
   }
   for (s in 1:(R*C)) {
-    for (t in neighbors(R*C)) {
+    for (t in neighbors(s)) {
       if (t > s) {
         setME(s, t, sampleME(s, t, beta))
       }
