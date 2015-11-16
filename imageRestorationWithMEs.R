@@ -92,12 +92,15 @@ theta <- 4 # weight on data term
 gamma <- .1 # microedge penalty
 
 # read in the test image
-picture <- read.bmp("img/small_cat.bmp")
+picture <- read.bmp("img/medium_cat.bmp")
 R <- ncol(picture)
 C <- nrow(picture)
 
 # transform to image()-ready orientation and degrade
-values <- t(picture[C:1, 1:R, 1]) # 1 => red channel
+ch.R <- t(picture[C:1, 1:R, 1])
+ch.G <- t(picture[C:1, 1:R, 2])
+ch.B <- t(picture[C:1, 1:R, 3])
+values <- 0.30*ch.R + 0.59*ch.G + 0.11*ch.B
 original <- values / 127.5 - 1 # scale from [0..255] -> [-1, 1]
 y <- degrade(original, perturb_percentage=.2)
 
