@@ -66,7 +66,7 @@ f <- function(xs, xt, e) {
 	return((xs-xt)^2*(1-e) + gamma*e)
 }
 
-# energy function evaluated when x_s = v
+# energy function evaluated when x_s = v (only over neighbors of s)
 H <- function(s, v) {
   theta*d(v, y[s]) + sum(sapply(neighbors(s), function(t) f(v, x[t], getME(s, t))))
 }
