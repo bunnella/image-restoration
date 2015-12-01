@@ -7,6 +7,10 @@ library(bmp)
 library(compiler)
 enableJIT(3)
 
+# SET YOUR WORKING DIRECTORY TO THE REPO!!!
+
+Rprof.out <- "Rprof.out" # change to NULL to turn off profiling
+
 display <- function(img, caption = "") {
   image(img/2+.5, col=gray(V/2+.5), zlim=0:1, frame=F, asp=1, xaxt="n", yaxt="n", main=caption)
 }
@@ -92,7 +96,7 @@ theta <- 4 # weight on data term
 gamma <- .1 # microedge penalty
 
 # read in the test image
-picture <- read.bmp("img/medium_cat.bmp")
+picture <- read.bmp("img/small_cat.bmp")
 R <- ncol(picture)
 C <- nrow(picture)
 
@@ -127,6 +131,9 @@ setME <- function(s1, s2, e) {
       stop("invalid neighbors, stupid")
 }
 
+# turn on profiling (or possibly not...)
+Rprof(filename = Rprof.out)
+
 # Gibbs time ;)
 x <- y # init with degraded (given) image
 for (n in 1:N) {
@@ -144,4 +151,10 @@ for (n in 1:N) {
   cat(paste0("\r", round(100*n/N), "%\r"))
 }
 
+# turn off profiling
+Rprof(filename = NULL)
+
 display(x, "MAP estimate")
+
+# profile summary
+if (!is.null(Rprof.out)) summaryRprof(filename = Rprof.out)
