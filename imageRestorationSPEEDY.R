@@ -34,8 +34,8 @@ d <- function(xs, ys) {
 }
 
 f <- function(xs, xt) {
-  #1/((xs-xt)^-2/alpha + 1/gamma)
-  min((xs-xt)^2, gamma)
+  ((((xs-xt)^2)^-alpha) + gamma^-alpha)^(-1/alpha)
+  #min((xs-xt)^2, gamma)
   #atan(gamma*(xs-xt)^2)
 }
 
@@ -62,9 +62,9 @@ sampleXs <- function(s, beta = 1) {
 
 N <- 100 # number of sweeps
 V <- seq(-1, 1, length.out = 32) # set of discrete gray levels
-theta <- 4 # weight on data term
-gamma <- .4 # microedge penalty
-alpha <- 5 # robustification steepness
+theta <- 6 # weight on data term
+gamma <- .1 # microedge penalty
+alpha <- 1.5 # robustification steepness
 
 # read in the test image
 picture <- read.bmp("img/papercat69.bmp")
@@ -90,7 +90,7 @@ Rprof(filename = Rprof.out)
 # Gibbs time ;)
 x <- y # init with degraded (given) image
 for (n in 1:N) {
-  beta = 40 # no annealing for now - was min(exp((n - N/2)/20), 50)
+  beta = 70 # no annealing for now - was min(exp((n - N/2)/20), 50)
   for (s in 1:(R*C)) {
     x[s] = sampleXs(s, beta)
   }
