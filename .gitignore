@@ -1,2 +1,5 @@
 /.*
 /Rprof.out
+*.o
+*.dll
+*.so
