@@ -12,7 +12,7 @@ enableJIT(3)
 Rprof.out <- "Rprof.out" # change to NULL to turn off profiling
 
 display <- function(img, caption = "") {
-  image(img/2+.5, col=gray(V/2+.5), zlim=0:1, frame=F, asp=1, xaxt="n", yaxt="n", main=caption)
+  image(img/2+.5, col=gray(V/2+.5), zlim=0:1, frame=F, asp=C/R, xaxt="n", yaxt="n", main=caption)
 }
 
 degrade <- function(original, perturb_percentage=.2) {
@@ -34,6 +34,7 @@ d <- function(xs, ys) {
 }
 
 f <- function(xs, xt) {
+  #1/((xs-xt)^-2/alpha + 1/gamma)
   min((xs-xt)^2, gamma)
   #atan(gamma*(xs-xt)^2)
 }
@@ -60,12 +61,13 @@ sampleXs <- function(s, beta = 1) {
 ## Gibbs Sampler!
 
 N <- 100 # number of sweeps
-V <- seq(-1, 1, length.out = 16) # set of discrete gray levels
-theta <- 3 # weight on data term
+V <- seq(-1, 1, length.out = 32) # set of discrete gray levels
+theta <- 4 # weight on data term
 gamma <- .4 # microedge penalty
+alpha <- 5 # robustification steepness
 
 # read in the test image
-picture <- read.bmp("img/small_cat.bmp")
+picture <- read.bmp("img/papercat69.bmp")
 R <- ncol(picture)
 C <- nrow(picture)
 
@@ -75,7 +77,7 @@ ch.G <- t(picture[C:1, 1:R, 2])
 ch.B <- t(picture[C:1, 1:R, 3])
 values <- 0.30*ch.R + 0.59*ch.G + 0.11*ch.B
 original <- values / 127.5 - 1 # scale from [0..255] -> [-1, 1]
-y <- degrade(original, perturb_percentage=.2)
+y <- original #degrade(original, perturb_percentage=.2)
 
 # plot original + degraded, leave room for MAP estimate
 par(mfrow = c(1, 3), mar = c(2.6, 1, 2.6, 1))

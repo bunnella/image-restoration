@@ -22,23 +22,6 @@ int R, C;
 // constants
 float r_gamma, r_theta, r_beta;
 
-// microedge data structures
-int **eEW, **eNS;
-
-static void init_microedges() {
-	eEW = malloc(sizeof(int*) * R);
-	eNS = malloc(sizeof(int*) * R);
-
-	for (int i = 0; i < R; i++) {
-		eEW[i] = malloc(sizeof(int) * C);
-		eNS[i] = malloc(sizeof(int) * C);
-		for (int j = 0; j < C; j++) {
-			eEW[i][j] = 0;
-			eNS[i][j] = 0;
-		}
-	}
-}
-
 void set_images(SEXP R_x, SEXP R_y) {
 	x = R_x;
 	y = R_y;
@@ -56,51 +39,45 @@ void set_constants(SEXP R_beta, SEXP R_gamma, SEXP R_theta) {
 	r_theta = REAL(R_theta)[0];
 }
 
-int getME(int r1, int c1, int r2, int c2) {
-	#ifndef SPEEDY
-	assert((r1 == r2 && abs(c1-c2) == 1) || (c1 == c2 && abs(r1-r2) == 1));
-	#endif
-
-	if (r1 == r2) {
-		if (c1 < c2) return eEW[r1][c1];
-		else return eEW[r1][c2];
-	} else {
-		if (r1 < r2) return eNS[r1][c1];
-		else return eNS[r2][c1];
-	}
-}
-
-void setME(int r1, int c1, int r2, int c2, int e) {
-	#ifndef SPEEDY
-	assert((r1 == r2 && abs(c1-c2) == 1) || (c1 == c2 && abs(r1-r2) == 1));
-	#endif
-
-	if (r1 == r2) {
-		if (c1 < c2) eEW[r1][c1] = e;
-		else eEW[r1][c2] = e;
-	} else {
-		if (r1 < r2) eNS[r1][c1] = e;
-		else eNS[r2][c1] = e;
-	}
-}
-
-float d(float xs, float ys) {
+static float d(float xs, float ys) {
 	return (xs-ys)*(xs-ys);
 }
 
-float f(float xs, float xt, int e) {
-	return e ? r_gamma : (xs-xt)*(xs-xt);
+static float f(float xs, float xt) {
+	return min((xs-xt)*(xs-xt), r_gamma);
 }
 
 #define ACCESS(mat, r, c) REAL(mat)[r + c*R]
 
-float H(int r, int c, float v) {
+static float H(int r, int c, float v) {
 	float energy = r_theta * d(v, ACCESS(y, r, c));
 
-	if (r > 0)   energy += f(v, ACCESS(x, r-1, c  ), getME(r, c, r-1, c  ));
-	if (c > 0)   energy += f(v, ACCESS(x, r,   c-1), getME(r, c, r  , c-1));
-	if (r < R-1) energy += f(v, ACCESS(x, r+1, c  ), getME(r, c, r+1, c  ));
-	if (c < C-1) energy += f(v, ACCESS(x, r,   c+1), getME(r, c, r  , c+1));
+	if (r > 0)   energy += f(v, ACCESS(x, r-1, c  ));
+	if (c > 0)   energy += f(v, ACCESS(x, r,   c-1));
+	if (r < R-1) energy += f(v, ACCESS(x, r+1, c  ));
+	if (c < C-1) energy += f(v, ACCESS(x, r,   c+1));
 
 	return energy;
 }
+
+float sampleXs <- function(int r, int c, float beta) {
+	float* energies = float[nlevels];
+}
+
+
+
+/*
+
+# returns a sample from the local characteristic distribution
+sampleXs <- function(s, beta = 1) {
+	probs <- sapply(V, function(v) exp(-beta*H(s, v)))
+	sample(V, 1, prob = probs)
+}
+
+# returns a sampled microedge parity between pixels s & t
+sampleME <- function(s, t, beta = 1) {
+  probs <- sapply(0:1, function(e) exp(-beta*f(x[s], x[t], e)))
+  sample(0:1, 1, prob = probs) # TODO: try without beta?
+}
+
+*/
