@@ -15,19 +15,6 @@ display <- function(img, caption = "") {
   image(img/2+.5, col=gray(V/2+.5), zlim=0:1, frame=F, asp=C/R, xaxt="n", yaxt="n", main=caption)
 }
 
-degrade <- function(original, perturb_percentage=.2) {
-  static_vector <- rnorm(R*C,0,perturb_percentage/2)
-  # 90% within two standard deviations
-  # which is +/- perturb_percentage
-  # which is perturb_percentage as percentage of dist between -1 and 1
-  random_noise <- matrix(static_vector, nrow=R, ncol=C)
-  # print(head(random_noise))
-  added_noise <- original+random_noise
-  #added_noise
-  m <- matrix(mapply(function(x) min(max(x,-1), 1),added_noise),nrow=R,ncol=C)
-  m
-}
-
 # euclidian distance
 d <- function(xs, ys) {
   (xs-ys)^2
@@ -36,7 +23,6 @@ d <- function(xs, ys) {
 f <- function(xs, xt) {
   ((((xs-xt)^2)^-alpha) + gamma^-alpha)^(-1/alpha)
   #min((xs-xt)^2, gamma)
-  #atan(gamma*(xs-xt)^2)
 }
 
 # energy function evaluated when x_s = v (only over neighbors of s)
@@ -60,11 +46,16 @@ sampleXs <- function(s, beta = 1) {
 ##############################################################################
 ## Gibbs Sampler!
 
-N <- 100 # number of sweeps
+N <- 10 # number of sweeps
 V <- seq(-1, 1, length.out = 32) # set of discrete gray levels
-theta <- 6 # weight on data term
+theta <- 4 # weight on data term
 gamma <- .1 # microedge penalty
-alpha <- 1.5 # robustification steepness
+alpha <- 1.2 # robustification steepness
+beta <- function(n) {
+  tau <- 200 # max annealing temperature
+  omicron <- 5 # annealing steepness
+  tau*(1-exp(-omicron*n/N))
+}
 
 # read in the test image
 picture <- read.bmp("img/papercat69.bmp")
@@ -90,9 +81,8 @@ Rprof(filename = Rprof.out)
 # Gibbs time ;)
 x <- y # init with degraded (given) image
 for (n in 1:N) {
-  beta = 70 # no annealing for now - was min(exp((n - N/2)/20), 50)
   for (s in 1:(R*C)) {
-    x[s] = sampleXs(s, beta)
+    x[s] = sampleXs(s, beta(n))
   }
   cat(paste0("\r", round(100*n/N), "%\r"))
 }
