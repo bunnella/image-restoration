@@ -4,6 +4,7 @@
 #include "lib/png/png.h"
 
 int main(int argc, char *argv[]) {
+	printf("HELLO FROM THE OTHER SIZE.\n");
 	if (argc == 1) {
 		printf("Give me a file to open, son.\n");
 		return 1;
