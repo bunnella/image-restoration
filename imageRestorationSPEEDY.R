@@ -58,7 +58,7 @@ beta <- function(n) {
 }
 
 # read in the test image
-picture <- read.bmp("img/papercat69.bmp")
+picture <- read.bmp("Anne's Stuff!/img/lena_gray_512b.bmp")
 R <- ncol(picture)
 C <- nrow(picture)
 

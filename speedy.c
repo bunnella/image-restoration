@@ -1,83 +1,132 @@
 #include <R.h>
-#include <Rinternals.h>
+#include <Rdefines.h>
+#include <Rmath.h>
 
 #include <stdlib.h>
 #include <assert.h>
+#include <math.h>
 
-SEXP setGlobals(SEXP a, SEXP b) {
-	SEXP result = PROTECT(allocVector(REALSXP, 2));
-	REAL(result)[0] = asReal(a) + asReal(b) + 500;
-	REAL(result)[1] = -24;
-	UNPROTECT(1);
+int n = 0; // current sweep
 
-	return result;
-}
+// global parameters, y'all
+struct {
+	int   nlevels; // number of quantization levels
+	double theta;   // weight on data term
+	double gamma;   // microedge penalty
+	double alpha;   // robustification steepness
+	double tau;     // max annealing temperature
+	double omicron; // annealing steepness
+} gp;
 
-// R matrices for (degraded) source and MCMC guess
+// gray values
+double *V;
+
+// R matrices for (degraded) source and MCMC "guess" + dimensions
 SEXP y, x;
+int  R, C;
 
-// dimensions
-int R, C;
+// macros for 2-D array access
+#define Y(r, c) REAL(y)[(r) + (c)*R]
+#define X(r, c) REAL(x)[(r) + (c)*R]
 
-// constants
-float r_gamma, r_theta, r_beta;
-
-void set_images(SEXP R_x, SEXP R_y) {
-	x = R_x;
-	y = R_y;
-}
-
-void set_dimensions(SEXP R_R, SEXP R_C) {
-	R = REAL(R_R)[0];
-	C = REAL(R_C)[0];
-	init_microedges();
-}
-
-void set_constants(SEXP R_beta, SEXP R_gamma, SEXP R_theta) {
-	r_beta = REAL(R_beta)[0];
-	r_gamma = REAL(R_gamma)[0];
-	r_theta = REAL(R_theta)[0];
-}
-
-static float d(float xs, float ys) {
+// data term
+static double d(double xs, double ys) {
 	return (xs-ys)*(xs-ys);
 }
 
-static float f(float xs, float xt) {
-	return min((xs-xt)*(xs-xt), r_gamma);
+// local characteristic term
+static double f(double xs, double xt) {
+	return pow(pow((xs-xt)*(xs-xt), -gp.alpha) + pow(gp.gamma, -gp.alpha), -1/gp.alpha);
 }
 
-#define ACCESS(mat, r, c) REAL(mat)[r + c*R]
+// combined energy function
+static double H(int r, int c, double v) {
+	double energy = gp.theta * d(v, Y(r, c));
 
-static float H(int r, int c, float v) {
-	float energy = r_theta * d(v, ACCESS(y, r, c));
-
-	if (r > 0)   energy += f(v, ACCESS(x, r-1, c  ));
-	if (c > 0)   energy += f(v, ACCESS(x, r,   c-1));
-	if (r < R-1) energy += f(v, ACCESS(x, r+1, c  ));
-	if (c < C-1) energy += f(v, ACCESS(x, r,   c+1));
+	if (r > 0)   energy += f(v, X(r-1, c  ));
+	if (c > 0)   energy += f(v, X(r,   c-1));
+	if (r < R-1) energy += f(v, X(r-1, c  ));
+	if (c < C-1) energy += f(v, X(r,   c+1));
 
 	return energy;
 }
 
-float sampleXs <- function(int r, int c, float beta) {
-	float* energies = float[nlevels];
+// returns the index of the largest item in cum which val exceeds
+static int bisect(double *cum, double val) {
+	int i = 1;
+	while (val > cum[i] && i < gp.nlevels)
+		i++;
+	return i-1;
 }
 
+// Gibbs sampler (with annealing parameter)
+static void sampleXs(int r, int c, double beta) {
+	double *energies = malloc(gp.nlevels*sizeof(double));
+	double sum = 0;
 
+	for (int i = 0; i < gp.nlevels; ++i) {
+		energies[i] = exp(-beta*H(r, c, V[i]));
+		sum += energies[i];		
+	}
 
-/*
+	double *cumprobs = malloc(gp.nlevels*sizeof(double));
+	cumprobs[0] = 0;
+	for (int i = 1; i < gp.nlevels; ++i) {
+		cumprobs[i] = cumprobs[i-1] + energies[i-1]/sum;
+	}
+	free(energies);
 
-# returns a sample from the local characteristic distribution
-sampleXs <- function(s, beta = 1) {
-	probs <- sapply(V, function(v) exp(-beta*H(s, v)))
-	sample(V, 1, prob = probs)
+	double u = (double) rand() / RAND_MAX;
+	double v = V[bisect(cumprobs, u)];
+	X(r, c) = v;
+
+	free(cumprobs);
 }
 
-# returns a sampled microedge parity between pixels s & t
-sampleME <- function(s, t, beta = 1) {
-  probs <- sapply(0:1, function(e) exp(-beta*f(x[s], x[t], e)))
-  sample(0:1, 1, prob = probs) # TODO: try without beta?
+// sets up chain parameters and stuff
+SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_V, SEXP R_theta, SEXP R_gamma, SEXP R_alpha, SEXP R_tau, SEXP R_omicron) {
+	// TODO: maybe seed better?
+	srand(1);
+
+	n = 1; // ready to start (over)
+
+	// (degraded) source and already MCMC starting point
+	if (R_x == R_y) error("x and y refer to identical matrices in memory!");
+	y = R_y;
+	x = R_x;
+
+	// image dimensions (R rows x C columns)
+	R = nrows(R_y);
+	C = ncols(R_y);
+
+	// setup gray values
+	V = REAL(R_V);
+	gp.nlevels = length(R_V);
+
+	// energy function parameters
+	gp.theta = asReal(R_theta);
+	gp.gamma = asReal(R_gamma);
+	gp.alpha = asReal(R_alpha);
+
+	// annealing parameters
+	gp.tau = asReal(R_tau);
+	gp.omicron = asReal(R_omicron);
+
+	return R_NilValue;
 }
 
-*/
+// runs the chain for N additional steps
+SEXP R_runGibbs(SEXP R_N) {
+	if (!n) error("Gibbs sampler unitialized; call setupGibbs first");
+	
+	int N = n + asInteger(R_N);
+
+	for (; n < N; ++n) {
+		double invT = gp.tau * (1 - exp(-gp.omicron*n/N)); // THIS IS BETA!
+		for (int r = 0; r < R; ++r)
+			for (int c = 0; c < C; ++c)
+				sampleXs(r, c, invT);
+	}
+
+	return x;
+}

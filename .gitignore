@@ -1,5 +1,5 @@
 .*
-/Rprof.out
+Rprof.out
 *.o
 *.a
 *.dll

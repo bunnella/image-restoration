@@ -16,14 +16,14 @@ int main(int argc, char *argv[]) {
 	image.format = PNG_FORMAT_RGBA;
 
 	if (!png_image_begin_read_from_file(&image, argv[1])) {
-		// error handling
+		printf("COULDN'T OPEN IT BOOOOOO.\n");
 		return 1;
 	}
 
 	png_bytep buffer = malloc(PNG_IMAGE_SIZE(image));
 
 	if (!png_image_finish_read(&image, NULL, buffer, 0, NULL)) {
-		// error handling...
+		printf("READ ERROR BEEP BEEP BOOP.\n");
 		return 1;
 	}
 
