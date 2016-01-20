@@ -1,17 +1,12 @@
-# image
-# Gibbs Sample/ Simulated Annealing
-# RAP
-# Output
-
 library(bmp)
 library(compiler)
 invisible(enableJIT(3))
 
-set.seed(57)
-
 # SET YOUR WORKING DIRECTORY TO THE REPO!!!
 setwd("~/Carleton/MATH-COMPS/")
-dyn.load("speedy.dll")
+
+##############################################################################
+## Function defs
 
 display <- function(img, caption = "") {
   image(img/2+.5, col=gray(V/2+.5), zlim=0:1, frame=F, asp=C/R, xaxt="n", yaxt="n", main=caption)
@@ -19,20 +14,25 @@ display <- function(img, caption = "") {
 
 setupGibbs <- function(
   y, x = y[],
+  seed    = 0,
+  nlevels = 64,
   theta   = 4,
   gamma   = .1,
   alpha   = 1.2,
   tau     = 150,
-  omicron = 5,
-...) { .Call("R_setupGibbs", y, x, V, theta, gamma, alpha, tau, omicron) }
+  omicron = 0.04,
+...) {
+  V <<- seq(-1, 1, length.out = nlevels)
+  .Call("R_setupGibbs", y, x, seed, V, theta, gamma, alpha, tau, omicron)
+}
 
 runGibbs <- function(N) .Call("R_runGibbs", N)
 
 ##############################################################################
-## Gibbs Sampler!
+## Setup
 
 # read in the test image
-picture <- read.bmp("Anne's Stuff!/img/lena_gray_512b.bmp")
+picture <- read.bmp("img/lena_gray_512b.bmp")
 R <- ncol(picture)
 C <- nrow(picture)
 
@@ -44,16 +44,17 @@ values <- 0.30*ch.R + 0.59*ch.G + 0.11*ch.B
 original <- values / 127.5 - 1 # scale from [0..255] -> [-1, 1]
 y <- original
 
-# setup gray levels
-nlevels = 32
-V <- seq(-1, 1, length.out = nlevels)
+##############################################################################
+## Gibbs sampler!
+
+dyn.load("speedy.dll")
+
+V <- c()
+setupGibbs(y)
 
 # plot original + degraded, leave room for MAP estimate
-par(mfrow = c(1, 3), mar = c(2.6, 1, 2.6, 1))
-display(original, "Original")
+par(mfrow = c(1, 2), mar = c(2.6, 1, 2.6, 1))
 display(y, "Noisy data")
-
-setupGibbs(y)
 
 x <- runGibbs(1)
 

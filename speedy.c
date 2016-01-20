@@ -6,11 +6,11 @@
 #include <assert.h>
 #include <math.h>
 
-int n = 0; // current sweep
+int curSweep = 0;
 
 // global parameters, y'all
 struct {
-	int   nlevels; // number of quantization levels
+	int    nlevels; // number of quantization levels
 	double theta;   // weight on data term
 	double gamma;   // microedge penalty
 	double alpha;   // robustification steepness
@@ -51,32 +51,42 @@ static double H(int r, int c, double v) {
 	return energy;
 }
 
-// returns the index of the largest item in cum which val exceeds
-static int bisect(double *cum, double val) {
-	int i = 1;
-	while (val > cum[i] && i < gp.nlevels)
-		i++;
-	return i-1;
+// returns the index of the largest item in (sorted) arr which val exceeds
+static int bisect(double *arr, double val) {
+	int i = 0;
+	int j = gp.nlevels;
+	int k;
+
+	while (j - i > 1) {
+		k = (i + j) / 2;
+		if (val > arr[k])
+			i = k;
+		else
+			j = k;
+	}
+
+	return i;
 }
 
-// Gibbs sampler (with annealing parameter)
+// Gibbs sampler (with annealing parameter beta)
 static void sampleXs(int r, int c, double beta) {
 	double *energies = malloc(gp.nlevels*sizeof(double));
 	double sum = 0;
 
 	for (int i = 0; i < gp.nlevels; ++i) {
 		energies[i] = exp(-beta*H(r, c, V[i]));
-		sum += energies[i];		
+		sum += energies[i];
 	}
 
-	double *cumprobs = malloc(gp.nlevels*sizeof(double));
+	double *cumprobs = malloc((1+gp.nlevels)*sizeof(double));
 	cumprobs[0] = 0;
+	cumprobs[gp.nlevels] = 1;
 	for (int i = 1; i < gp.nlevels; ++i) {
 		cumprobs[i] = cumprobs[i-1] + energies[i-1]/sum;
 	}
 	free(energies);
 
-	double u = (double) rand() / RAND_MAX;
+	double u = (double) rand() / RAND_MAX; // runif(1)
 	double v = V[bisect(cumprobs, u)];
 	X(r, c) = v;
 
@@ -84,11 +94,9 @@ static void sampleXs(int r, int c, double beta) {
 }
 
 // sets up chain parameters and stuff
-SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_V, SEXP R_theta, SEXP R_gamma, SEXP R_alpha, SEXP R_tau, SEXP R_omicron) {
-	// TODO: maybe seed better?
-	srand(1);
+SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_V, SEXP R_theta, SEXP R_gamma, SEXP R_alpha, SEXP R_tau, SEXP R_omicron) {
 
-	n = 1; // ready to start (over)
+	curSweep = 1; // ready to start (over)
 
 	// (degraded) source and already MCMC starting point
 	if (R_x == R_y) error("x and y refer to identical matrices in memory!");
@@ -98,6 +106,9 @@ SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_V, SEXP R_theta, SEXP R_gamma, SEXP
 	// image dimensions (R rows x C columns)
 	R = nrows(R_y);
 	C = ncols(R_y);
+
+	// seed random stuff!
+	srand((unsigned) asInteger(R_seed));
 
 	// setup gray values
 	V = REAL(R_V);
@@ -115,18 +126,21 @@ SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_V, SEXP R_theta, SEXP R_gamma, SEXP
 	return R_NilValue;
 }
 
-// runs the chain for N additional steps
+// runs the chain for N (additional) steps
 SEXP R_runGibbs(SEXP R_N) {
-	if (!n) error("Gibbs sampler unitialized; call setupGibbs first");
-	
-	int N = n + asInteger(R_N);
+	if (!curSweep) error("Gibbs sampler unitialized; call setupGibbs first");
 
-	for (; n < N; ++n) {
-		double invT = gp.tau * (1 - exp(-gp.omicron*n/N)); // THIS IS BETA!
+	int N = asInteger(R_N);
+
+	for (int n = 0; n < N; ++n) {
+		printf("\r%.0f%%", (double) n / N * 100);
+		double invT = gp.tau * (1 - exp(-gp.omicron*curSweep)); // THIS IS BETA!
 		for (int r = 0; r < R; ++r)
 			for (int c = 0; c < C; ++c)
 				sampleXs(r, c, invT);
+		curSweep++;
 	}
 
+	printf("\r100%%");
 	return x;
 }

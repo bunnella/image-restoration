@@ -1,7 +1,3 @@
 .*
 Rprof.out
 *.o
-*.a
-*.dll
-*.so
-*.exe
