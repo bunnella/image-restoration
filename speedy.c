@@ -75,7 +75,7 @@ static void sampleXs(int r, int c, double beta) {
 
 	for (int i = 0; i < gp.nlevels; ++i) {
 		energies[i] = exp(-beta*H(r, c, V[i]));
-		sum += energies[i];
+		sum += energies[i];		
 	}
 
 	double *cumprobs = malloc((1+gp.nlevels)*sizeof(double));

@@ -8,6 +8,8 @@ setwd("~/Carleton/MATH-COMPS/")
 ##############################################################################
 ## Function defs
 
+V <- c()
+
 display <- function(img, caption = "") {
   image(img/2+.5, col=gray(V/2+.5), zlim=0:1, frame=F, asp=C/R, xaxt="n", yaxt="n", main=caption)
 }
@@ -19,9 +21,9 @@ setupGibbs <- function(
   theta   = 4,
   gamma   = .1,
   alpha   = 1.2,
-  tau     = 150,
-  omicron = 0.04,
-...) {
+  tau     = 180,
+  omicron = 0.1,
+  ...) {
   V <<- seq(-1, 1, length.out = nlevels)
   .Call("R_setupGibbs", y, x, seed, V, theta, gamma, alpha, tau, omicron)
 }
@@ -49,14 +51,13 @@ y <- original
 
 dyn.load("speedy.dll")
 
-V <- c()
-setupGibbs(y)
+setupGibbs(y, omicron = .09, tau = 200, theta = 3, gamma = .05, alpha = 1)
 
 # plot original + degraded, leave room for MAP estimate
 par(mfrow = c(1, 2), mar = c(2.6, 1, 2.6, 1))
 display(y, "Noisy data")
 
-x <- runGibbs(1)
+x <- runGibbs(50)
 
 display(x, "MAP estimate")
 
