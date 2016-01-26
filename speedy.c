@@ -39,6 +39,11 @@ static double f(double xs, double xt) {
 	return pow(pow(abs(xs-xt), -2*gp.alpha) + pow(gp.gamma, -gp.alpha), -1/gp.alpha);
 }
 
+//static double H(int r, int c, double v) {
+//	double energy = 0;
+//
+//}
+
 // returns the index of the largest item in (sorted) arr which val exceeds
 static int bisect(double *arr, double val) {
 	int i = 0;
@@ -60,7 +65,7 @@ static int bisect(double *arr, double val) {
 
 // Gibbs sampler (with annealing parameter beta)
 static void sampleXs(int r, int c, double beta) {
-	double *energies = malloc(gp.nlevels*sizeof(double));
+	double *energies = calloc(gp.nlevels, sizeof(double));
 	double sum = 0;
 	int n = 0;
 
@@ -70,7 +75,7 @@ static void sampleXs(int r, int c, double beta) {
 	if (r < C-1) NEIGHBOR(r  , c+1);
 
 	for (int i = 0; i < gp.nlevels; ++i) {
-		energies[i] = energies[i]/n + gp.theta*d(V[i], Y(r, c));
+		energies[i] = exp(-beta*(energies[i]/n + gp.theta*d(V[i], Y(r, c))));
 		sum += energies[i];
 	}
 
