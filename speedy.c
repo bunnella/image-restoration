@@ -36,19 +36,7 @@ static double d(double xs, double ys) {
 
 // local characteristic term
 static double f(double xs, double xt) {
-	return pow(pow((xs-xt)*(xs-xt), -gp.alpha) + pow(gp.gamma, -gp.alpha), -1/gp.alpha);
-}
-
-// combined energy function
-static double H(int r, int c, double v) {
-	double energy = gp.theta * d(v, Y(r, c));
-
-	if (r > 0)   energy += f(v, X(r-1, c  ));
-	if (c > 0)   energy += f(v, X(r,   c-1));
-	if (r < R-1) energy += f(v, X(r-1, c  ));
-	if (c < C-1) energy += f(v, X(r,   c+1));
-
-	return energy;
+	return pow(pow(abs(xs-xt), -2*gp.alpha) + pow(gp.gamma, -gp.alpha), -1/gp.alpha);
 }
 
 // returns the index of the largest item in (sorted) arr which val exceeds
@@ -68,14 +56,22 @@ static int bisect(double *arr, double val) {
 	return i;
 }
 
+#define NEIGHBOR(r, c) { ++n; for (int i = 0; i < gp.nlevels; ++i) energies[i] += f(V[i], X(r, c)); }
+
 // Gibbs sampler (with annealing parameter beta)
 static void sampleXs(int r, int c, double beta) {
 	double *energies = malloc(gp.nlevels*sizeof(double));
 	double sum = 0;
+	int n = 0;
+
+	if (r > 0)   NEIGHBOR(r-1, c  );
+	if (c > 0)   NEIGHBOR(r  , c-1);
+	if (r < R-1) NEIGHBOR(r+1, c  );
+	if (r < C-1) NEIGHBOR(r  , c+1);
 
 	for (int i = 0; i < gp.nlevels; ++i) {
-		energies[i] = exp(-beta*H(r, c, V[i]));
-		sum += energies[i];		
+		energies[i] = energies[i]/n + gp.theta*d(V[i], Y(r, c));
+		sum += energies[i];
 	}
 
 	double *cumprobs = malloc((1+gp.nlevels)*sizeof(double));
@@ -111,6 +107,7 @@ SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_V, SEXP R_theta, SEXP 
 	srand((unsigned) asInteger(R_seed));
 
 	// setup gray values
+	if (R_V == R_NilValue) error("V isn't initialized and that should be different...");
 	V = REAL(R_V);
 	gp.nlevels = length(R_V);
 
