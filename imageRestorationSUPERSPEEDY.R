@@ -2,21 +2,21 @@ library(png)
 library(jpeg)
 
 # SET YOUR WORKING DIRECTORY TO THE REPO!!!
-setwd("~/Carleton/MATH-COMPS")
+setwd("K:/math400-10-w16/Common/image-restoration/")
 
 ##############################################################################
 ## Function defs
 
-q <- .2
+q <- .8
 
 V <- c()
 
 display <- function(img, caption = "") {
-  image(t(img[R:1, 1:C]), col=gray(V), zlim=0:1, frame=F, asp=C/R, xaxt="n", yaxt="n", main=caption)
+  image(t(img[R:1, 1:C]), col=gray(V), zlim=0:1, frame=F, asp=R/C, xaxt="n", yaxt="n", main=caption)
 }
 
 setupGibbs <- function(
-  y, x = y[],
+  y, x,
   seed    = 0,
   nlevels = 64,
   theta   = 4,
@@ -35,9 +35,9 @@ runGibbs <- function(N) .Call("R_runGibbs", N)
 ## Setup
 
 # read in the test image
-picture <- readPNG("img/lena_gray_512.png")
-R <- ncol(picture)
-C <- nrow(picture)
+picture <- readPNG("img/beiber.png")
+R <- nrow(picture)
+C <- ncol(picture)
 
 # transform to image()-ready orientation
 ch.R <- picture[ , , 1]
@@ -54,14 +54,16 @@ y <- readJPEG("tmp.jpg")
 
 dyn.load("speedy.dll")
 
-setupGibbs(y, omicron = .075, tau = 1000, theta = 1.5, gamma = 0.01)
+x <- y[] # copy
+
+setupGibbs(y, x, omicron = .075, tau = 1000, theta = 1.5, gamma = 0.01)
 
 # plot original + degraded, leave room for MAP estimate
 par(mfrow = c(1, 3), mar = c(2.6, 1, 2.6, 1))
 display(original, "Original image")
 display(y, "Noisy data")
 
-x <- runGibbs(10) # can be called multiple times to proceed further into the chain
+x <- runGibbs(1000) # can be called multiple times to proceed further into the chain
 
 display(x, "MAP estimate")
 
