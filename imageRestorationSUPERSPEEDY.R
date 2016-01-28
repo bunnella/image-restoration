@@ -15,6 +15,11 @@ display <- function(img, caption = "") {
   image(t(img[R:1, 1:C]), col=gray(V), zlim=0:1, frame=F, asp=R/C, xaxt="n", yaxt="n", main=caption)
 }
 
+# Mean Square Error
+mse <- function(orginalImg, RestoredImg) {
+  return 0
+}
+
 setupGibbs <- function(
   y, x,
   seed    = 0,
@@ -60,12 +65,15 @@ x <- y[] # copy
 setupGibbs(y, x, omicron = .075, tau = 1000, theta = 2, gamma = 0.02)
 
 # plot original + degraded, leave room for MAP estimate
-par(mfrow = c(1, 3), mar = c(2.6, 1, 2.6, 1))
-display(original, "Original image")
+par(mfrow = c(1, 3), mar = c(2.6,  1, 2.6, 1))
+display(original, "Origina1 image")
 display(y, "Noisy data")
 
 x <- runGibbs(10) # can be called multiple times to proceed further into the chain
 
 display(x, "MAP estimate")
 
-dyn.unload("speedy.dll")
+dyn.unload("speedy.dll") #speedy dot dill
+
+
+##############################################################################
