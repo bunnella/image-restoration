@@ -16,6 +16,7 @@ struct {
 	double alpha;   // robustification steepness
 	double tau;     // max annealing temperature
 	double omicron; // annealing steepness
+	double kappa;   // minimax quadratic/linear crossover
 } gp;
 
 // gray values
@@ -25,30 +26,64 @@ double *V;
 SEXP y, x;
 int  R, C;
 
+// trust matrix
+double *k;
+
 // macros for 2-D array access
 #define Y(r, c) REAL(y)[(r) + (c)*R]
 #define X(r, c) REAL(x)[(r) + (c)*R]
+#define K(r, c) k[(r) + (c)*R]
 
 // data term
 static double d(double xs, double ys) {
 	return (xs-ys)*(xs-ys);
 }
 
+#define ABS(x) ((x) < 0) ? -(x) : +(x)
+
 // local characteristic term
 static double f(double xs, double xt) {
-	return pow(pow(abs(xs-xt), -2*gp.alpha) + pow(gp.gamma, -gp.alpha), -1/gp.alpha);
+	return pow(pow(ABS(xs-xt), -2*gp.alpha) + pow(gp.gamma, -gp.alpha), -1/gp.alpha);
 }
 
-//static double H(int r, int c, double v) {
-//	double energy = 0;
-//
-//}
+static inline double minimax(double d) {
+	return ABS(d); // (ABS(d) > gp.kappa) ? d*d : gp.kappa*gp.kappa + 2*gp.kappa*(abs(d)-gp.kappa);
+}
+
+static void initTrustMatrix() {
+	k = malloc(sizeof(double)*R*C);
+
+	// assign trust on edges
+	double defaultEdgeTrust = 0.5;
+	for (int r = 0; r < R; ++r) {
+		K(r, 0)   = defaultEdgeTrust;
+		K(r, C-1) = defaultEdgeTrust;
+	}
+	for (int c = 1; c < C-1; ++c) {
+		K(0,   c) = defaultEdgeTrust;
+		K(R-1, c) = defaultEdgeTrust;
+	}
+
+	// do actual calculations on the internal pixels
+	for (int r = 1; r < R-1; ++r) {
+		for (int c = 1; c < C-1; ++c) {
+			double trust = 0;
+			for (int i = -1; i <= 1; ++i) {
+				for (int j = -1; j <= 1; ++j) {
+					trust += minimax(Y(r, c) - Y(r+i, c+j));
+				}
+			}
+			K(r, c) = 1 - trust/(2*gp.kappa - gp.kappa*gp.kappa)/8;
+		}
+	}
+}
+
 
 // returns the index of the largest item in (sorted) arr which val exceeds
 static int bisect(double *arr, double val) {
 	int i = 0;
 	int j = gp.nlevels;
-	int k;
+	int k; 
 
 	while (j - i > 1) {
 		k = (i + j) / 2;
@@ -75,7 +110,7 @@ static void sampleXs(int r, int c, double beta) {
 	if (r < C-1) NEIGHBOR(r  , c+1);
 
 	for (int i = 0; i < gp.nlevels; ++i) {
-		energies[i] = exp(-beta*(energies[i]/n + gp.theta*d(V[i], Y(r, c))));
+		energies[i] = exp(-beta*(energies[i]/n + K(r, c)*gp.theta*d(V[i], Y(r, c))));
 		sum += energies[i];
 	}
 
@@ -95,7 +130,7 @@ static void sampleXs(int r, int c, double beta) {
 }
 
 // sets up chain parameters and stuff
-SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_V, SEXP R_theta, SEXP R_gamma, SEXP R_alpha, SEXP R_tau, SEXP R_omicron) {
+SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_V, SEXP R_theta, SEXP R_gamma, SEXP R_alpha, SEXP R_kappa, SEXP R_tau, SEXP R_omicron) {
 
 	curSweep = 1; // ready to start (over)
 
@@ -120,10 +155,13 @@ SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_V, SEXP R_theta, SEXP 
 	gp.theta = asReal(R_theta);
 	gp.gamma = asReal(R_gamma);
 	gp.alpha = asReal(R_alpha);
+	gp.kappa = asReal(R_kappa);
 
 	// annealing parameters
 	gp.tau = asReal(R_tau);
 	gp.omicron = asReal(R_omicron);
+
+	initTrustMatrix();
 
 	return R_NilValue;
 }

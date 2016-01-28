@@ -2,7 +2,7 @@ library(png)
 library(jpeg)
 
 # SET YOUR WORKING DIRECTORY TO THE REPO!!!
-setwd("K:/math400-10-w16/Common/image-restoration/")
+setwd("K:/math400-10-w16/common/image-restoration")
 
 ##############################################################################
 ## Function defs
@@ -22,11 +22,12 @@ setupGibbs <- function(
   theta   = 4,
   gamma   = .1,
   alpha   = 1.2,
+  kappa   = 0.5,
   tau     = 180,
   omicron = 0.1,
   ...) {
   V <<- seq(0, 1, length.out = nlevels)
-  .Call("R_setupGibbs", y, x, seed, V, theta, gamma, alpha, tau, omicron)
+  .Call("R_setupGibbs", y, x, seed, V, theta, gamma, alpha, kappa, tau, omicron)
 }
 
 runGibbs <- function(N) .Call("R_runGibbs", N)
@@ -56,14 +57,14 @@ dyn.load("speedy.dll")
 
 x <- y[] # copy
 
-setupGibbs(y, x, omicron = .075, tau = 1000, theta = 1.5, gamma = 0.01)
+setupGibbs(y, x, omicron = .075, tau = 1000, theta = 2, gamma = 0.02)
 
 # plot original + degraded, leave room for MAP estimate
 par(mfrow = c(1, 3), mar = c(2.6, 1, 2.6, 1))
 display(original, "Original image")
 display(y, "Noisy data")
 
-x <- runGibbs(1000) # can be called multiple times to proceed further into the chain
+x <- runGibbs(10) # can be called multiple times to proceed further into the chain
 
 display(x, "MAP estimate")
 
