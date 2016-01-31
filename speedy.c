@@ -22,36 +22,39 @@ struct {
 // gray values
 double *V;
 
-// R matrices for (degraded) source and MCMC "guess" + dimensions
+// R matrices for (degraded) source and MCMC candidate + dimensions
 SEXP y, x;
 int  R, C;
 
 // trust matrix
-double *k;
+double *k = NULL;
 
 // macros for 2-D array access
 #define Y(r, c) REAL(y)[(r) + (c)*R]
 #define X(r, c) REAL(x)[(r) + (c)*R]
 #define K(r, c) k[(r) + (c)*R]
 
+// stlib abs() is int-only...
+#define ABS(x) ((x) < 0) ? -(x) : +(x)
+
 // data term
 static double d(double xs, double ys) {
 	return (xs-ys)*(xs-ys);
 }
-
-#define ABS(x) ((x) < 0) ? -(x) : +(x)
 
 // local characteristic term
 static double f(double xs, double xt) {
 	return pow(pow(ABS(xs-xt), -2*gp.alpha) + pow(gp.gamma, -gp.alpha), -1/gp.alpha);
 }
 
+// nonlinearizes each neighbor's contribution to the consistency measure
 static inline double minimax(double d) {
 	return ABS(d); // (ABS(d) > gp.kappa) ? d*d : gp.kappa*gp.kappa + 2*gp.kappa*(abs(d)-gp.kappa);
 }
 
+// computes trust values (0-1) for each pixel based on consistency measure
 static void initTrustMatrix() {
-	k = malloc(sizeof(double)*R*C);
+	if (!k) k = malloc(sizeof(double)*R*C);
 
 	// assign trust on edges
 	double defaultEdgeTrust = 0.5;
@@ -73,7 +76,7 @@ static void initTrustMatrix() {
 					trust += minimax(Y(r, c) - Y(r+i, c+j));
 				}
 			}
-			K(r, c) = 1 - trust/(2*gp.kappa - gp.kappa*gp.kappa)/8;
+			K(r, c) = 1 - trust/8;
 		}
 	}
 }
@@ -98,6 +101,8 @@ static int bisect(double *arr, double val) {
 
 #define NEIGHBOR(r, c) { ++n; for (int i = 0; i < gp.nlevels; ++i) energies[i] += f(V[i], X(r, c)); }
 
+#define U() (double) rand() / RAND_MAX // runif(1)
+
 // Gibbs sampler (with annealing parameter beta)
 static void sampleXs(int r, int c, double beta) {
 	double *energies = calloc(gp.nlevels, sizeof(double));
@@ -109,10 +114,27 @@ static void sampleXs(int r, int c, double beta) {
 	if (r < R-1) NEIGHBOR(r+1, c  );
 	if (r < C-1) NEIGHBOR(r  , c+1);
 
+	double kappa = K(r, c);
 	for (int i = 0; i < gp.nlevels; ++i) {
-		energies[i] = exp(-beta*(energies[i]/n + K(r, c)*gp.theta*d(V[i], Y(r, c))));
+		energies[i] = energies[i]/n + kappa*gp.theta*d(V[i], Y(r, c));
+		energies[i] = exp(-beta*energies[i]);
 		sum += energies[i];
 	}
+
+// LOCAL MAX CODE COMMENT OUT IF NECESSARY
+	int maxIndex = -1;
+	double maxVal = -1;
+	for (int i = 0; i < gp.nlevels; ++i) {
+		if (energies[i] > maxVal) {
+			maxIndex = i;
+			maxVal = energies[i];
+		}
+	}
+
+	X(r, c) = V[maxIndex];
+	free(energies);
+	return;
+// END LOCAL MAX CODE
 
 	double *cumprobs = malloc((1+gp.nlevels)*sizeof(double));
 	cumprobs[0] = 0;
@@ -122,8 +144,7 @@ static void sampleXs(int r, int c, double beta) {
 	}
 	free(energies);
 
-	double u = (double) rand() / RAND_MAX; // runif(1)
-	double v = V[bisect(cumprobs, u)];
+	double v = V[bisect(cumprobs, U())];
 	X(r, c) = v;
 
 	free(cumprobs);
@@ -155,7 +176,7 @@ SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_V, SEXP R_theta, SEXP 
 	gp.theta = asReal(R_theta);
 	gp.gamma = asReal(R_gamma);
 	gp.alpha = asReal(R_alpha);
-	gp.kappa = asReal(R_kappa);
+	gp.kappa = asReal(R_kappa); // NOT USED CURRENTLY (for fancier minimax)
 
 	// annealing parameters
 	gp.tau = asReal(R_tau);
@@ -172,12 +193,27 @@ SEXP R_runGibbs(SEXP R_N) {
 
 	int N = asInteger(R_N);
 
+
 	for (int n = 0; n < N; ++n) {
 		printf("\r%.0f%%", (double) n / N * 100);
 		double invT = gp.tau * (1 - exp(-gp.omicron*curSweep)); // THIS IS BETA!
+
+		// select a pixel at random; hope for the best
+		for (int s = 0; s < R*C; ++s) {
+			int r, c;
+			do {
+				r = (int) floor(U()*R);
+				c = (int) floor(U()*C);
+			} while (r == R || c == C); // just in case U() returns 1.0 on the nose
+			sampleXs(r, c, invT);
+		}
+
+		/* old code where we sweep row-by-row
 		for (int r = 0; r < R; ++r)
 			for (int c = 0; c < C; ++c)
 				sampleXs(r, c, invT);
+		*/
+
 		curSweep++;
 	}
 
