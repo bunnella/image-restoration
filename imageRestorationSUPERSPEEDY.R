@@ -25,7 +25,7 @@ display <- function(img, caption = "") {
 
 # Mean Square Error
 mse <- function(orginalImg, RestoredImg) {
-  return 0
+  0
 }
 
 setupGibbs <- function(
@@ -50,8 +50,8 @@ runGibbs <- function(N) .Call("R_runGibbs", N)
 
 # read in the test image
 original <- readPNG("img/startest.png")
-R <- nrow(src)
-C <- ncol(src)
+R <- nrow(original)
+C <- ncol(original)
 
 # degrade away!
 writeJPEG(original, target = "tmp.jpg", quality = q)
@@ -65,7 +65,7 @@ dyn.load("speedy.dll")
 
 x <- y[] # copy
 
-setupGibbs(y, x, seed = 200, theta = 0.25, gamma = 0.05, alpha = 1)
+setupGibbs(y, x, seed = 200, theta = 1/3, gamma = 0.04, alpha = 2/3)
 
 # plot original + degraded, leave room for MAP estimate
 par(mfrow = c(1, 3), mar = c(2.6,  1, 2.6, 1))
@@ -78,6 +78,4 @@ display(x, "MAP estimate")
 
 dyn.unload("speedy.dll")
 
-
 ##############################################################################
-
