@@ -22,8 +22,13 @@ display <- function(img, caption = "") {
 }
 
 # Mean Square Error
-mse <- function(orginalImg, RestoredImg) {
-  0
+mse <- function(originalImg, RestoredImg) {
+  n <- length(originalImg)
+  returnVal <- 0
+  for (i in 1:n) {
+    returnVal <- returnVal + (originalImg[i] - RestoredImg[i])^2
+  }
+  returnVal/n
 }
 
 setupMCMC <- function(
