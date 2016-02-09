@@ -10,8 +10,6 @@ library(jpeg)
 
 q <- .25
 
-V <- c()
-
 extractGray <- function(pic) {
   ch.R <- pic[ , , 1]
   ch.G <- pic[ , , 2]
@@ -20,7 +18,7 @@ extractGray <- function(pic) {
 }
 
 display <- function(img, caption = "") {
-  image(t(img[R:1, 1:C]), col=gray(V), zlim=0:1, frame=F, asp=R/C, xaxt="n", yaxt="n", main=caption)
+  image(t(img[R:1, 1:C]), col=gray(0:255/255), zlim=0:1, frame=F, asp=R/C, xaxt="n", yaxt="n", main=caption)
 }
 
 # Mean Square Error
@@ -28,22 +26,18 @@ mse <- function(orginalImg, RestoredImg) {
   0
 }
 
-setupGibbs <- function(
+setupMCMC <- function(
   y, x,
   seed    = 0,
-  nlevels = 64,
   theta   = 4,
   gamma   = .1,
   alpha   = 1.33,
   kappa   = 0.5,
   tau     = 180,
   omicron = 0.1,
-  ...) {
-  V <<- seq(0, 1, length.out = nlevels)
-  .Call("R_setupGibbs", y, x, seed, V, theta, gamma, alpha, kappa, tau, omicron)
-}
+  ...) .Call("R_setupMCMC", y, x, seed, theta, gamma, alpha, kappa, tau, omicron)
 
-runGibbs <- function(N) .Call("R_runGibbs", N)
+runMCMC <- function(N) .Call("R_runMCMC", N)
 
 ##############################################################################
 ## Setup
@@ -65,14 +59,14 @@ dyn.load("speedy.dll")
 
 x <- y[] # copy
 
-setupGibbs(y, x, seed = 200, theta = 1/3, gamma = 0.04, alpha = 2/3)
+setupMCMC(y, x, seed = 100, theta = 0.2, gamma = 0.03333333, alpha = 1.5)
 
 # plot original + degraded, leave room for MAP estimate
 par(mfrow = c(1, 3), mar = c(2.6,  1, 2.6, 1))
 display(ystar, "Original image")
 display(y, "Noisy data")
 
-x <- runGibbs(1000) # can be called multiple times to proceed further into the chain
+x <- runMCMC(100) # can be called multiple times to proceed further into the chain
 
 display(x, "MAP estimate")
 
