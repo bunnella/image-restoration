@@ -16,7 +16,11 @@ struct {
 	double tau;     // max annealing temperature
 	double omicron; // annealing steepness
 	double kappa;   // minimax quadratic/linear crossover
+	int    nlevels; // number of levels in first sampling phase
 } gp;
+
+// first sampling values
+double *V = NULL; 
 
 // trust matrix
 double *k = NULL;
@@ -41,7 +45,8 @@ int  R, C;
 
 // computes trust values (0-1) for each pixel based on consistency measure
 void initTrustMatrix() {
-	if (!k) k = malloc(sizeof(double)*R*C);
+	if (k) free(k);
+	k = malloc(sizeof(double)*R*C);
 
 	// assign trust on edges
 	double defaultEdgeTrust = 0.5;
@@ -110,18 +115,34 @@ static int bisect(double *arr, double val) {
 
 // M-H sampler (with annealing parameter beta)
 void sampleXs(int r, int c, double beta) {
-	double original = X(r, c);
-	double proposal = U();
+	double *energies = malloc(gp.nlevels*sizeof(double));
+	double sum = 0;
 
+	for (int i = 0; i < gp.nlevels; ++i) {
+		energies[i] = h(r, c, V[i]);
+		sum += energies[i];
+	}
+
+	double *cumprobs = malloc((gp.nlevels+1)*sizeof(double));
+	cumprobs[0] = 0;
+	cumprobs[gp.nlevels] = 1;
+	for (int i = 1; i < gp.nlevels; ++i)
+		cumprobs[i] = cumprobs[i-1] + energies[i-1]/sum;
+
+	double original = X(r, c);
+	double proposal = V[bisect(cumprobs, U())] + (2*U()-1)/(gp.nlevels+1);
 	double deltaH = h(r, c, proposal) - h(r, c, original);
 
 	// accept proposal if energy is improved or w/ M-H acceptance prob
-	if (deltaH < 0 || U() < K(r, c)*exp(-beta*deltaH))
+	if (deltaH < 0 || U() < (1-K(r, c))*exp(-beta*deltaH))
 		X(r, c) = proposal;
+
+	free(energies);
+	free(cumprobs);
 }
 
 // sets up chain parameters and stuff
-SEXP R_setupMCMC(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_theta, SEXP R_gamma, SEXP R_alpha, SEXP R_kappa, SEXP R_tau, SEXP R_omicron) {
+SEXP R_setupMCMC(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_nlevels, SEXP R_theta, SEXP R_gamma, SEXP R_alpha, SEXP R_kappa, SEXP R_tau, SEXP R_omicron) {
 
 	curSweep = 1; // ready to start (over)
 
@@ -147,6 +168,13 @@ SEXP R_setupMCMC(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_theta, SEXP R_gamma, SE
 	gp.tau = asReal(R_tau);
 	gp.omicron = asReal(R_omicron);
 
+	// init gray levels for discrete sampling
+	gp.nlevels = asInteger(R_nlevels);
+	if (V) free(V);
+	V = malloc(gp.nlevels*sizeof(double));
+	for (int i = 1; i <= gp.nlevels; ++i)
+		V[i] = (double) i / (gp.nlevels+1); 
+
 	initTrustMatrix();
 
 	return R_NilValue;
@@ -157,7 +185,6 @@ SEXP R_runMCMC(SEXP R_N) {
 	if (curSweep == 0) error("unitialized chain; call setupMCMC first");
 
 	int N = asInteger(R_N);
-
 
 	for (int n = 0; n < N; ++n) {
 		printf("\r%.0f%%", (double) n / N * 100);

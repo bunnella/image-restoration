@@ -22,25 +22,21 @@ display <- function(img, caption = "") {
 }
 
 # Mean Square Error
-mse <- function(originalImg, RestoredImg) {
-  n <- length(originalImg)
-  returnVal <- 0
-  for (i in 1:n) {
-    returnVal <- returnVal + (originalImg[i] - RestoredImg[i])^2
-  }
-  returnVal/n
+mse <- function(ystar, xstar) {
+  mean((ystar-xstar)^2)
 }
 
 setupMCMC <- function(
   y, x,
   seed    = 0,
+  nlevels = 8,
   theta   = 4,
   gamma   = .1,
   alpha   = 1.33,
   kappa   = 0.5,
   tau     = 180,
   omicron = 0.1,
-  ...) .Call("R_setupMCMC", y, x, seed, theta, gamma, alpha, kappa, tau, omicron)
+  ...) .Call("R_setupMCMC", y, x, seed, nlevels, theta, gamma, alpha, kappa, tau, omicron)
 
 runMCMC <- function(N) .Call("R_runMCMC", N)
 
