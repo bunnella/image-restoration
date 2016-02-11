@@ -26,7 +26,7 @@ mse <- function(ystar, xstar) {
   mean((ystar-xstar)^2)
 }
 
-setupMCMC <- function(
+setupGibbs <- function(
   y, x,
   seed    = 0,
   nlevels = 8,
@@ -34,11 +34,11 @@ setupMCMC <- function(
   gamma   = .1,
   alpha   = 1.33,
   kappa   = 0.5,
-  tau     = 180,
+  tau     = 100,
   omicron = 0.1,
-  ...) .Call("R_setupMCMC", y, x, seed, nlevels, theta, gamma, alpha, kappa, tau, omicron)
+  ...) .Call("R_setupGibbs", y, x, seed, nlevels, theta, gamma, alpha, kappa, tau)
 
-runMCMC <- function(N) .Call("R_runMCMC", N)
+runGibbs <- function(N) .Call("R_runGibbs", N)
 
 ##############################################################################
 ## Setup
@@ -60,14 +60,14 @@ dyn.load("speedy.dll")
 
 x <- y[] # copy
 
-setupMCMC(y, x, seed = 100, theta = 0.2, gamma = 0.03333333, alpha = 1.5)
+setupGibbs(y, x, nlevels = 10, seed = 100, theta = 0.1, gamma = 0.02, alpha = 1.6666667)
 
 # plot original + degraded, leave room for MAP estimate
 par(mfrow = c(1, 3), mar = c(2.6,  1, 2.6, 1))
 display(ystar, "Original image")
 display(y, "Noisy data")
 
-x <- runMCMC(100) # can be called multiple times to proceed further into the chain
+x <- runGibbs(1000) # can be called multiple times to proceed further into the chain
 
 display(x, "MAP estimate")
 

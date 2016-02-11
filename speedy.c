@@ -14,12 +14,11 @@ struct {
 	double gamma;   // microedge penalty
 	double alpha;   // robustification steepness
 	double tau;     // max annealing temperature
-	double omicron; // annealing steepness
 	double kappa;   // minimax quadratic/linear crossover
 	int    nlevels; // number of levels in first sampling phase
 } gp;
 
-// first sampling values
+// discrete sampling interval centers
 double *V = NULL; 
 
 // trust matrix
@@ -49,7 +48,7 @@ void initTrustMatrix() {
 	k = malloc(sizeof(double)*R*C);
 
 	// assign trust on edges
-	double defaultEdgeTrust = 0.5;
+	double defaultEdgeTrust = 1.0;
 	for (int r = 0; r < R; ++r) {
 		K(r, 0)   = defaultEdgeTrust;
 		K(r, C-1) = defaultEdgeTrust;
@@ -74,12 +73,12 @@ void initTrustMatrix() {
 }
 
 // data term
-double d(double xs, double ys) {
+inline double d(double xs, double ys) {
 	return (xs-ys)*(xs-ys);
 }
 
 // local characteristic term
-double f(double xs, double xt) {
+inline double f(double xs, double xt) {
 	return pow(pow(ABS(xs-xt), -2*gp.alpha) + pow(gp.gamma, -gp.alpha), -1/gp.alpha);
 }
 
@@ -119,7 +118,7 @@ void sampleXs(int r, int c, double beta) {
 	double sum = 0;
 
 	for (int i = 0; i < gp.nlevels; ++i) {
-		energies[i] = h(r, c, V[i]);
+		energies[i] = exp(-beta*h(r, c, V[i]));
 		sum += energies[i];
 	}
 
@@ -142,7 +141,7 @@ void sampleXs(int r, int c, double beta) {
 }
 
 // sets up chain parameters and stuff
-SEXP R_setupMCMC(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_nlevels, SEXP R_theta, SEXP R_gamma, SEXP R_alpha, SEXP R_kappa, SEXP R_tau, SEXP R_omicron) {
+SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_nlevels, SEXP R_theta, SEXP R_gamma, SEXP R_alpha, SEXP R_kappa, SEXP R_tau) {
 
 	curSweep = 1; // ready to start (over)
 
@@ -166,7 +165,6 @@ SEXP R_setupMCMC(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_nlevels, SEXP R_theta, 
 
 	// annealing parameters
 	gp.tau = asReal(R_tau);
-	gp.omicron = asReal(R_omicron);
 
 	// init gray levels for discrete sampling
 	gp.nlevels = asInteger(R_nlevels);
@@ -181,14 +179,14 @@ SEXP R_setupMCMC(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_nlevels, SEXP R_theta, 
 }
 
 // runs the chain for N (additional) steps
-SEXP R_runMCMC(SEXP R_N) {
-	if (curSweep == 0) error("unitialized chain; call setupMCMC first");
+SEXP R_runGibbs(SEXP R_N) {
+	if (curSweep == 0) error("unitialized chain; call setupGibbs first");
 
 	int N = asInteger(R_N);
 
 	for (int n = 0; n < N; ++n) {
 		printf("\r%.0f%%", (double) n / N * 100);
-		double invT = gp.tau * (1 - exp(-gp.omicron*curSweep)); // THIS IS BETA!
+		double invT = gp.tau*log(curSweep); //gp.tau * (1 - exp(-gp.omicron*curSweep)); // THIS IS BETA!
 
 		// select a pixel at random; hope for the best
 		for (int s = 0; s < R*C; ++s) {
