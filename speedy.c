@@ -15,11 +15,7 @@ struct {
 	double alpha;   // robustification steepness
 	double tau;     // max annealing temperature
 	double kappa;   // minimax quadratic/linear crossover
-	int    nlevels; // number of levels in first sampling phase
 } gp;
-
-// discrete sampling interval centers
-double *V = NULL; 
 
 // trust matrix
 double *k = NULL;
@@ -40,7 +36,19 @@ int  R, C;
 #define U() ((double) rand() / RAND_MAX)
 
 // nonlinearizes each neighbor's contribution to the consistency measure
-#define minimax(d) ABS(d); // (ABS(d) > gp.kappa) ? d*d : gp.kappa*gp.kappa + 2*gp.kappa*(abs(d)-gp.kappa);
+inline double minimax(double d) {
+	return (ABS(d) < gp.kappa) ? d*d : gp.kappa*gp.kappa + 2*gp.kappa*(ABS(d)-gp.kappa);
+} 
+
+// 
+double trust(int r, int c) {
+	double distrust = 0;
+	for (int i = -1; i <= 1; ++i)
+		for (int j = -1; j <= 1; ++j)
+			distrust += minimax(Y(r, c) - Y(r+i, c+j));
+
+	return 1 - distrust/(2*gp.kappa-gp.kappa*gp.kappa)/8;
+}
 
 // computes trust values (0-1) for each pixel based on consistency measure
 void initTrustMatrix() {
@@ -50,26 +58,18 @@ void initTrustMatrix() {
 	// assign trust on edges
 	double defaultEdgeTrust = 1.0;
 	for (int r = 0; r < R; ++r) {
-		K(r, 0)   = defaultEdgeTrust;
+		K(r, 0  ) = defaultEdgeTrust;
 		K(r, C-1) = defaultEdgeTrust;
 	}
 	for (int c = 1; c < C-1; ++c) {
-		K(0,   c) = defaultEdgeTrust;
+		K(0  , c) = defaultEdgeTrust;
 		K(R-1, c) = defaultEdgeTrust;
 	}
 
 	// do actual calculations on the internal pixels
-	for (int r = 1; r < R-1; ++r) {
-		for (int c = 1; c < C-1; ++c) {
-			double trust = 0;
-			for (int i = -1; i <= 1; ++i) {
-				for (int j = -1; j <= 1; ++j) {
-					trust += minimax(Y(r, c) - Y(r+i, c+j));
-				}
-			}
-			K(r, c) = 1 - trust/8;
-		}
-	}
+	for (int r = 1; r < R-1; ++r)
+		for (int c = 1; c < C-1; ++c)	
+			K(r, c) = trust(r, c);
 }
 
 // data term
@@ -95,53 +95,20 @@ double h(int r, int c, double v) {
 	return local/n + gp.theta*d(v, Y(r, c));
 }
 
-// returns the index of the largest item in (sorted) arr which val exceeds
-static int bisect(double *arr, double val) {
-	int i = 0;
-	int j = gp.nlevels;
-	int k; 
-
-	while (j - i > 1) {
-		k = (i + j) / 2;
-		if (val > arr[k])
-			i = k;
-		else
-			j = k;
-	}
-
-	return i;
-}
-
-// M-H sampler (with annealing parameter beta)
 void sampleXs(int r, int c, double beta) {
-	double *energies = malloc(gp.nlevels*sizeof(double));
-	double sum = 0;
-
-	for (int i = 0; i < gp.nlevels; ++i) {
-		energies[i] = exp(-beta*h(r, c, V[i]));
-		sum += energies[i];
-	}
-
-	double *cumprobs = malloc((gp.nlevels+1)*sizeof(double));
-	cumprobs[0] = 0;
-	cumprobs[gp.nlevels] = 1;
-	for (int i = 1; i < gp.nlevels; ++i)
-		cumprobs[i] = cumprobs[i-1] + energies[i-1]/sum;
-
 	double original = X(r, c);
-	double proposal = V[bisect(cumprobs, U())] + (2*U()-1)/(gp.nlevels+1);
+	double proposal = original + (2*(U()<.5)-1)/256.0;
+	if (proposal < 0) proposal = 255/256.0;
+	if (proposal > 1) proposal =   1/256.0;
 	double deltaH = h(r, c, proposal) - h(r, c, original);
 
 	// accept proposal if energy is improved or w/ M-H acceptance prob
 	if (deltaH < 0 || U() < (1-K(r, c))*exp(-beta*deltaH))
 		X(r, c) = proposal;
-
-	free(energies);
-	free(cumprobs);
 }
 
 // sets up chain parameters and stuff
-SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_nlevels, SEXP R_theta, SEXP R_gamma, SEXP R_alpha, SEXP R_kappa, SEXP R_tau) {
+SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_theta, SEXP R_gamma, SEXP R_alpha, SEXP R_kappa, SEXP R_tau) {
 
 	curSweep = 1; // ready to start (over)
 
@@ -165,13 +132,6 @@ SEXP R_setupGibbs(SEXP R_y, SEXP R_x, SEXP R_seed, SEXP R_nlevels, SEXP R_theta,
 
 	// annealing parameters
 	gp.tau = asReal(R_tau);
-
-	// init gray levels for discrete sampling
-	gp.nlevels = asInteger(R_nlevels);
-	if (V) free(V);
-	V = malloc(gp.nlevels*sizeof(double));
-	for (int i = 1; i <= gp.nlevels; ++i)
-		V[i] = (double) i / (gp.nlevels+1); 
 
 	initTrustMatrix();
 

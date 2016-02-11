@@ -29,14 +29,12 @@ mse <- function(ystar, xstar) {
 setupGibbs <- function(
   y, x,
   seed    = 0,
-  nlevels = 8,
   theta   = 4,
   gamma   = .1,
   alpha   = 1.33,
   kappa   = 0.5,
   tau     = 100,
-  omicron = 0.1,
-  ...) .Call("R_setupGibbs", y, x, seed, nlevels, theta, gamma, alpha, kappa, tau)
+  ...) .Call("R_setupGibbs", y, x, seed, theta, gamma, alpha, kappa, tau)
 
 runGibbs <- function(N) .Call("R_runGibbs", N)
 
@@ -60,7 +58,7 @@ dyn.load("speedy.dll")
 
 x <- y[] # copy
 
-setupGibbs(y, x, nlevels = 10, seed = 100, theta = 0.1, gamma = 0.02, alpha = 1.6666667)
+setupGibbs(y, x, theta = 0.1, gamma = 0.01, kappa = .5, alpha = 1.8)
 
 # plot original + degraded, leave room for MAP estimate
 par(mfrow = c(1, 3), mar = c(2.6,  1, 2.6, 1))
@@ -70,6 +68,7 @@ display(y, "Noisy data")
 x <- runGibbs(1000) # can be called multiple times to proceed further into the chain
 
 display(x, "MAP estimate")
+mse(ystar, x) / mse(ystar, y)
 
 dyn.unload("speedy.dll")
 
