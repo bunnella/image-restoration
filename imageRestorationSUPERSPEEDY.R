@@ -26,6 +26,17 @@ mse <- function(ystar, xstar) {
   mean((ystar-xstar)^2)
 }
 
+displayError <- function(ystar, xstar, mse = FALSE) {
+  diff <- ystar-xstar
+  if (mse) {
+    diff <- diff^2
+  } else {
+    diff <- (diff^2)^.5
+  }
+  diff <- 1-diff
+  display(diff)
+}
+
 setupGibbs <- function(
   y, x,
   seed  = 0,
