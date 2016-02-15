@@ -28,15 +28,20 @@ mse <- function(ystar, xstar) {
 
 setupGibbs <- function(
   y, x,
-  seed    = 0,
-  theta   = 4,
-  gamma   = .1,
-  alpha   = 1.33,
-  kappa   = 0.5,
-  tau     = 100,
-  ...) .Call("R_setupGibbs", y, x, seed, theta, gamma, alpha, kappa, tau)
+  seed  = 0,
+  theta = 4,
+  gamma = .1,
+  alpha = 1.33,
+  kappa = 0.5,
+  step  = 1/256,
+  tau   = 100,
+  ...) .Call("R_setupGibbs", y, x, seed, theta, gamma, alpha, kappa, step, tau)
 
 runGibbs <- function(N) .Call("R_runGibbs", N)
+
+numSteps <- function() {
+  cat(sprintf("Completed %d chain steps.\n", .Call("R_numSteps")))
+}
 
 ##############################################################################
 ## Setup
