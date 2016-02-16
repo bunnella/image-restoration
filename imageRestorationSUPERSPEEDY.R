@@ -8,7 +8,7 @@ library(jpeg)
 ##############################################################################
 ## Function defs
 
-q <- .25
+q <- .5
 
 extractGray <- function(pic) {
   ch.R <- pic[ , , 1]
@@ -58,14 +58,14 @@ numSteps <- function() {
 ## Setup
 
 # read in the test image
-original <- readPNG("img/startest.png")
+original <- readPNG("img/final/star80.png")
 R <- nrow(original)
 C <- ncol(original)
 
 # degrade away!
-writeJPEG(original, target = "tmp.jpg", quality = q)
-y <- extractGray(readJPEG("tmp.jpg"))
 ystar <- extractGray(original)
+writeJPEG(ystar, target = "tmp.jpg", quality = q)
+y <- readJPEG("tmp.jpg")
 
 ##############################################################################
 ## Gibbs sampler!
@@ -74,14 +74,14 @@ dyn.load("speedy.dll")
 
 x <- y[] # copy
 
-setupGibbs(y, x, theta = 0.1, gamma = 0.01, kappa = .5, alpha = 1.8)
+setupGibbs(y, x, theta = 0.17, gamma = 0.011, alpha = 0.83, kappa = .41, tau = 282)
 
 # plot original + degraded, leave room for MAP estimate
 par(mfrow = c(1, 3), mar = c(2.6,  1, 2.6, 1))
 display(ystar, "Original image")
 display(y, "Noisy data")
 
-x <- runGibbs(1000) # can be called multiple times to proceed further into the chain
+x <- runGibbs(2000) # can be called multiple times to proceed further into the chain
 
 display(x, "MAP estimate")
 mse(ystar, x) / mse(ystar, y)
