@@ -51,8 +51,7 @@ R <- nrow(original)
 C <- ncol(original)
 
 # degrade away!
-ystar <- extractGray(original)
-writeJPEG(ystar, target = "tmp.jpg", quality = q)
+writeJPEG(original, target = "tmp.jpg", quality = q)
 y <- readJPEG("tmp.jpg")
 
 ##############################################################################
@@ -60,19 +59,18 @@ y <- readJPEG("tmp.jpg")
 
 dyn.load("speedy.dll")
 
-x <- y[] # copy
+nsteps <- 2000
+fixed <- y
 
-setupGibbs(y, x, theta = .13, gamma = .005, alpha = 1, kappa = .4, tau = 280)
+for (ch in 1:3) {
+  y.ch <- y[ , , ch]
+  x.ch <- y.ch[]
 
-# plot original + degraded, leave room for MAP estimate
-par(mfrow = c(1, 3), mar = c(2.6,  1, 2.6, 1))
-display(ystar, "Original image")
-display(y, "Noisy data")
+  setupGibbs(y.ch, x.ch, theta = .14, gamma = .01, alpha = 1, kappa = .3, tau = 350)
+  fixed[ , , ch] <- runGibbs(nsteps)
+}
 
-x <- runGibbs(1000) # can be called multiple times to proceed further into the chain
-
-display(x, "MAP estimate")
-mse(ystar, x) / mse(ystar, y)
+writePNG(fixed, "fixed.png")
 
 dyn.unload("speedy.dll")
 
