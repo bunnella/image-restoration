@@ -46,12 +46,12 @@ numSteps <- function() {
 ## Setup
 
 # read in the test image
-original <- readPNG("img/final/star80.png")
+original <- readPNG("img/milk.png")
 R <- nrow(original)
 C <- ncol(original)
 
 # degrade away!
-writeJPEG(original, target = "tmp.jpg", quality = q)
+writeJPEG(original, target = "tmp.png", quality = q)
 y <- readJPEG("tmp.jpg")
 
 ##############################################################################
@@ -66,11 +66,11 @@ for (ch in 1:3) {
   y.ch <- y[ , , ch]
   x.ch <- y.ch[]
 
-  setupGibbs(y.ch, x.ch, theta = .14, gamma = .01, alpha = 1, kappa = .3, tau = 350)
+  setupGibbs(y.ch, x.ch, theta = .13, gamma = .006, alpha = 1, kappa = .4, tau = 300)
   fixed[ , , ch] <- runGibbs(nsteps)
 }
 
-writePNG(fixed, "fixed.png")
+writePNG(fixed, "img/final/results/fixed.png")
 
 dyn.unload("speedy.dll")
 

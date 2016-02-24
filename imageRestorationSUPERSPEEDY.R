@@ -46,7 +46,7 @@ numSteps <- function() {
 ## Setup
 
 # read in the test image
-original <- readPNG("img/final/star80.png")
+original <- readPNG("img/milk.png")
 R <- nrow(original)
 C <- ncol(original)
 
